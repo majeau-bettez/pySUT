@@ -625,12 +625,18 @@ class SupplyUseTable(object):
     def build_mr_Xi(self):
         """ Define Product substitutability matrix for multiregional system
 
+        This function autogenerates a simple Xi matrix for a multi-regional SUT
+        table.  Xi matrix maps the substitutability between products
+        (especially useful for substitution-based allocations and constructs:
+        PSC, PSA, BTC.)
+
         By default, products displace identical products produced in the same
         region. If all products were produced as primary product in all
         regions, the Xi matrix would be an identity matrix.
 
         Otherwise, if a product is only produced as a secondary product in a
-        region, make this product substitute average primary production mix.
+        region, make this product substitute average global primary production
+        mix of this product.
 
         Dependencies
         ------------
@@ -671,10 +677,32 @@ class SupplyUseTable(object):
         self.Xi = Xi + Xi_glob
 
     def build_mr_Gamma(self, exclude_minority_prod=True):
-        """ Autogenerate alternate activity matrix for multi-regional SUT
+        """ Generate alternate activity matrix (Gamma) for multi-regional SUT
+
+        This function autogenerates a simple Gamma for a multi-regional SUT
+        table. The Gamma matrix assigns for every secondary product an industry
+        that will serve as "technological proxy" and whose technology will be
+        assumed for this product. This is especially useful for AAA, AAC, and
+        CTC.
+
+        By default, the function  will associate each secondary product in a
+        region to a primary production that produces an identical product in
+        the same region. If every product had a primary producer in every
+        region, the Gamma would equal a transposed E_bar (mapping of primary
+        production and product).
+
+        Otherwise, if a product is only produced as a secondary product in a
+        region, the technology of the global primary production mix of this
+        product will be assumed. Gamma will thus point to every primary
+        producer of a given product, proportionately to their share of the
+        global primary production. 
+        
+        However, by default (exclude_minority_prod=True), primary producers
+        that produce less of their primary product than of their secondary
+        products are excluded from the global mix.
 
         """
-
+        # Take all primary productions
         V_prim = self.V_bar.copy()
         if exclude_minority_prod:
             # Remove primary productions that are minority productions
