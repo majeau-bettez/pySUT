@@ -6,8 +6,7 @@ Created on Mon Aug 11 16:19:39 2014
 Guillaume Majeau-Bettez, NTNU Trondheim, Norway
 """
 from __future__ import division
-from .. import SupplyUseTable # remove and import the class manually if this unit test is run as standalone script
-from .. import pysut # remove and import the class manually if this unit test is run as standalone script
+from ..pySUT import SupplyUseTable
 import numpy as np
 import numpy.testing as npt
 import unittest
@@ -437,12 +436,12 @@ class TestAllocationsConstructs(unittest.TestCase):
                         [0, 0,   0, 2/5,    0, 1]])      #j
 
         sut = SupplyUseTable(V=self.V_3r2i2p, E_bar=self.E_bar_3r2i2p, regions=3)
-        sut.build_mr_Xi()
+        sut.build_mr_Xi('global')
 
 
         npt.assert_allclose(Xi0, sut.Xi)
 
-    def test_generate_Xi_3reg2ind3prod(self):
+    def test_generate_Xi_3reg2ind3prod_substituteProductionMix(self):
 
 
         # No production of j in Canada
@@ -470,7 +469,53 @@ class TestAllocationsConstructs(unittest.TestCase):
                          [   0,  0, 0,   0,     0, 3./4,   0,  0, 1 ]])    #k  US
 
         sut = SupplyUseTable(V=self.V_3r2i3p, E_bar=self.E_bar_3r2i3p, regions=3)
-        sut.build_mr_Xi()
+        sut.build_mr_Xi('global')
+
+        npt.assert_allclose(Xi0, sut.Xi)
+
+    def test_generate_Xi_3reg2ind3prod_substituteImportMix(self):
+
+
+        # No primary production of j in Canada
+            # Canada import j from from Norway, which is a primary producer
+            # secondary productions of j in Ca substitute j from Norway
+
+        # No primary production of i or k in Norway
+            # i fully imported from Canada
+            # secondary production of i in Norway substitutes i from Canada
+
+            # k fully imported from US
+            # secondary productions of k in Norway substitutes k from the US
+
+        # No primary production of j in US
+            # j fully imported from Norway, sole producer
+
+        # j primarily produced only in Norway, any 2nd prod of j diplaces j_No
+        # No prod i in Norway displaces world mix (1:2 Ca:USA)
+        # No prod k in Norway, displaces world mix (1:3 Ca:USA)
+
+
+        Xi0 = np.array([
+                      #   Ca   Ca   Ca   No   No   No   US   US   US
+                      #   i    j    k    i    j    k    i    j    k
+                        [ 1.,  0.,  0.,  1.,  0.,  0.,  0.,  0.,  0.],    #i  Ca
+                        [ 0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.],    #j  Ca
+                        [ 0.,  0.,  1.,  0.,  0.,  0.,  0.,  0.,  0.],    #k  Ca
+                        #
+                        [ 0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.],    #i  No
+                        [ 0.,  1.,  0.,  0.,  1.,  0.,  0.,  1.,  0.],    #j  No
+                        [ 0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.],    #k  No
+                        #
+                        [ 0.,  0.,  0.,  0.,  0.,  0.,  1.,  0.,  0.],    #i  US
+                        [ 0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.],    #j  US
+                        [ 0.,  0.,  0.,  0.,  0.,  1.,  0.,  0.,  1.]]    #k  US)
+                        )
+
+        sut = SupplyUseTable(V=self.V_3r2i3p,
+                             U=self.U_3r2i3p,
+                             E_bar=self.E_bar_3r2i3p,
+                             regions=3)
+        sut.build_mr_Xi('imports')
 
         npt.assert_allclose(Xi0, sut.Xi)
 
@@ -554,7 +599,7 @@ class TestAllocationsConstructs(unittest.TestCase):
 
         sut = SupplyUseTable(U=self.U_Test_byprod, V=self.V_Test_byprod)
         sut.build_E_bar() # is unit matrix with the given example
-        sut.build_mr_Xi() # is unit matrix with the given example
+        sut.build_mr_Xi('global') # is unit matrix with the given example
         A, Am, Ab, __, __, __, Z, F_con = sut.psc_agg(keep_size=False)
 
         npt.assert_allclose(A, AmRef-AbRef, atol=self.atol)
@@ -689,7 +734,7 @@ class TestAllocationsConstructs(unittest.TestCase):
 
         sut = SupplyUseTable(U=self.U_3r2i3p, V=self.V_3r2i3p_coprod, regions=3)
         sut.build_E_bar()
-        sut.build_mr_Xi()
+        sut.build_mr_Xi('global')
 
         A, __, __, S, nn_in, nn_out, Z, F = sut.psc_agg(return_flows=True)
         # Ca_j production (secondary to Ca_i) displaces No_j
@@ -715,7 +760,7 @@ class TestAllocationsConstructs(unittest.TestCase):
                   E_bar=self.E_bar_3r2i3p,
                   regions=3)
 
-        sut.build_mr_Xi()
+        sut.build_mr_Xi('global')
         A, __, __, S, nn_in, nn_out, Z, F = sut.psc_agg(return_flows=True)
         npt.assert_allclose(self.Z_3r2i3p, Z, atol=self.atol)
 
@@ -985,5 +1030,5 @@ class TestAllocationsConstructs(unittest.TestCase):
         npt.assert_allclose(np.empty(0), Z, atol=self.atol)
         npt.assert_allclose(np.empty(0), F_con, atol=self.atol)
 
-#    if __name__ == '__main__':
-#        unittest.main()
+if __name__ == '__main__':
+    unittest.main()

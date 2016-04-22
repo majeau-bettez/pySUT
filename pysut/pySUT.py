@@ -622,7 +622,7 @@ class SupplyUseTable(object):
 
         return D
 
-    def build_mr_Xi(self):
+    def build_mr_Xi(self, mrmix='imports'):
         """ Define Product substitutability matrix for multiregional system
 
         This function autogenerates a simple Xi matrix for a multi-regional SUT
@@ -635,12 +635,15 @@ class SupplyUseTable(object):
         regions, the Xi matrix would be an identity matrix.
 
         Otherwise, if a product is only produced as a secondary product in a
-        region, make this product substitute average global primary production
-        mix of this product.
+        region X, make this product substitute EITHER average global primary production
+        mix of this product [mrmix='global'] OR the mix of primary production
+        of this product imported in region X [mrmix='imports'].
 
         Dependencies
         ------------
             self.E_bar to indicate primary production
+            self.V_bar
+            self.U
 
         Returns
         -------
@@ -653,20 +656,58 @@ class SupplyUseTable(object):
         e_bar = np.array(np.array(np.sum(self.E_bar, 1), bool), int)
         Xi = np.diag(e_bar)
 
-        # When no local primary production to substitute, turn to global
-        # primary mix
-        D = self.primary_market_shares_of_regions()
+        if mrmix == 'global':
+            # When no local primary production to substitute, turn to global
+            # primary mix
+            D = self.primary_market_shares_of_regions()
 
-        # Rearrange mix data in a region_product-by-product table
-        global_mix = np.array([]).reshape(0, D.shape[1])
-        for row in D:
-            global_mix = np.vstack([global_mix, np.diag(row)])
+            # Rearrange mix data in a region_product-by-product table
+            global_mix = np.array([]).reshape(0, D.shape[1])
+            for row in D:
+                global_mix = np.vstack([global_mix, np.diag(row)])
 
-        # Then tile to get same dimensions as Xi, and filter out columns where
-        # Xi already has a coefficient. This gives the completementary
-        # situations where the average global mix (rather than the local
-        # production) get substituted
-        Xi_glob = np.tile(global_mix, self.regions) * (1 - e_bar).T
+            # Then tile to get same dimensions as Xi, and filter out columns where
+            # Xi already has a coefficient. This gives the completementary
+            # situations where the average global mix (rather than the local
+            # production) get substituted
+            Xi_comp = np.tile(global_mix, self.regions) * (1 - e_bar).T
+
+        elif mrmix == 'imports':
+
+            # For each product, determine share coming from primary production
+            share_primary = (self.V_bar.sum(1) / self.V.sum(1)).reshape((-1,1))
+            share_primary[np.isnan(share_primary)] = 0
+            share_primary[np.isinf(share_primary)] = 0
+
+            # Get Use-of-products-from-primary-production
+            consumption_of_primary = self.U * share_primary
+
+            # Get regional consumption of products from primary production
+            reg_cons_of_prim = aggregate_within_regions(consumption_of_primary,
+                                                        regions=self.regions,
+                                                        axis=1)
+
+            # Vertically stacked identity matrices [region*product X product]
+            nb_products = self.V.shape[0]/self.regions
+            i = np.tile(np.eye(nb_products),self.regions).T
+
+            # Generate complementary Xi
+            Xi_comp = None
+            for j in range(reg_cons_of_prim.shape[1]):
+                Xi_j = i * reg_cons_of_prim[:,j].reshape((-1,1))
+                try:
+                    Xi_comp = np.hstack((Xi_comp, Xi_j))
+                except ValueError:
+                    Xi_comp = Xi_j.copy()
+            Xi_comp = Xi_comp/Xi_comp.sum(0)
+            Xi_comp[np.isnan(Xi_comp)] = 0
+            Xi_comp[np.isinf(Xi_comp)] = 0
+
+            # Remove entries already covered by perfec stubstitution
+            Xi_comp = Xi_comp * (1 - Xi.sum(0).reshape((1,-1)))
+        else:
+            logging.warning("Unknown argument to build_mr_Xi")
+
 
         # TODO: check if there are economy-wide exclusive secondary products
         #
@@ -674,7 +715,7 @@ class SupplyUseTable(object):
         # somewhere
 
         # Put all together and return to self
-        self.Xi = Xi + Xi_glob
+        self.Xi = Xi + Xi_comp
 
     def build_mr_Gamma(self, exclude_minority_prod=True):
         """ Generate alternate activity matrix (Gamma) for multi-regional SUT
