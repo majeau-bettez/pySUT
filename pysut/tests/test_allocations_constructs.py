@@ -582,20 +582,20 @@ class TestAllocationsConstructs(unittest.TestCase):
         npt.assert_allclose(np.empty(0), F_con, atol=self.atol)
         
     def test_psc_agg_byprod(self):
-        """ Tests whether by-products are returned correctly for the Product Substition Construct on SuUT"""
+        """ Tests whether by-products are returned correctly for the Product
+        Substition Construct on SuUT"""
 
         AmRef = np.array([[0.4,	0.8,	1.666666667,	0.5,	0],
                           [0.033333333,	0.2,	0.333333333,	0,	0],
                           [0,	0.2,	0.333333333,	0.5,	0],
                           [0.033333333,	0,	0,	0,	0],
                           [0,	0.2,	0.333333333,	0.5,	0]])
- 
+
         AbRef = np.array([[0,	0.2,	0.333333333,	0.5,	0],
                           [0.033333333,	0,	0.333333333,	0,	0],
                           [0.066666667,	0,	0,	0.5,	0],
                           [0,	0,	0.333333333,	0,	0],
                           [0,	0,	0,	0,	0]])
-        
 
         sut = SupplyUseTable(U=self.U_Test_byprod, V=self.V_Test_byprod)
         sut.build_E_bar() # is unit matrix with the given example
@@ -1029,6 +1029,41 @@ class TestAllocationsConstructs(unittest.TestCase):
         npt.assert_allclose(S0, S, atol=self.atol)
         npt.assert_allclose(np.empty(0), Z, atol=self.atol)
         npt.assert_allclose(np.empty(0), F_con, atol=self.atol)
+
+    def test_fps_basic(self):
+        """ Test Fixed Product Sales Structure"""
+
+        A0 = np.array([[ 0.        ,  0.        ,  0.        ,  0.01363636],
+                       [ 0.        ,  0.        ,  0.        ,  0.01363636],
+                       [ 0.        ,  0.        ,  0.        ,  0.04090909],
+                       [ 1.33333333,  0.75      ,  0.66666667,  0.        ]])
+
+        Z0 = np.array([[ 0.  ,  0.  ,  0.  ,  0.15],
+                       [ 0.  ,  0.  ,  0.  ,  0.15],
+                       [ 0.  ,  0.  ,  0.  ,  0.45],
+                       [ 4.  ,  0.75,  2.  ,  0.  ]])
+
+        S0 = np.array([[ 3.33333333,  4.        ,  5.        ,  1.63636364],
+                       [ 0.        ,  0.        ,  0.33333333,  0.        ]])
+
+        sut = SupplyUseTable(U=self.Uu, V=self.V, F=self.F)
+        A, S, Z, F_con = sut.fps()
+
+        npt.assert_allclose(Z, Z0, atol=self.atol)
+        npt.assert_allclose(F_con, self.F, atol=self.atol)
+        npt.assert_allclose(A, A0, atol=self.atol)
+        npt.assert_allclose(S, S0, atol=self.atol)
+
+    def test_fps_transition(self):
+        """ Test Fixed Product Sales Structure (sut.fps) relative to the
+        function it aims to replace (sut.Build_ITC_A_matrix_ixi()"""
+
+        sut = SupplyUseTable(U=self.Uu, V=self.V, F=self.F)
+        A, S, Z, F_con = sut.fps(return_flows=False)
+
+        A0 = sut.Build_ITC_A_matrix_ixi()
+
+        npt.assert_allclose(A, A0, atol=self.atol)
 
 if __name__ == '__main__':
     unittest.main()

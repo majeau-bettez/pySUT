@@ -1172,6 +1172,9 @@ class SupplyUseTable(object):
         ----
         keep_size: by default, keep all rows and columns in normalized A-matrix
                    even if some rows/columns should be NaN
+        returnd_flows: by default, return both normalized coefficients and
+            absolute (unnormalized) flows. Otherwise, returns empty Z and F_con
+            variables
 
         Returns
         --------
@@ -1357,6 +1360,58 @@ class SupplyUseTable(object):
             F_con = np.empty(0)
 
         return (A, S, nn_in, nn_out, Z, F_con)
+
+    """ INDUSTRY-BY-INDUSTRY CONSTRUCTS"""
+
+    def fps(self, return_flows=True):
+        """ Fixed Product-Sales structure, industry-by-industry construct
+
+        Args
+        ----
+        returnd_flows: by default, return both normalized coefficients and
+            absolute (unnormalized) flows. Otherwise, returns empty Z and F_con
+            variables
+
+        Returns
+        --------
+        A : Normalized technical requirements [com,com]
+        S : Normalized, constructed emissions [ext, com]
+        Z : constructed intermediate flow matrix [com,com]
+        F_con : Constructed emissions [ext,com]
+
+        Depends on
+        ----------
+        self.U : Use table [com, ind]
+        self.V : Supply table [com, ind]
+        self.F : Unallocated emissions [ext, ind] (default=np.empty(0))
+        """
+
+        # Default values
+        F_con = np.empty(0)
+        S = np.empty(0)
+
+        # The construct
+        D_sp = sp.csc_matrix(self.V.T * _one_over(self.q))
+            # ------------- sparse matrix notation start ---------------------
+        Z = (D_sp * sp.csc_matrix(self.U)).toarray()
+            # ------------- sparse matrix notation end -----------------------
+        
+
+        # Normalize
+        A = Z * _one_over(self.g)
+
+        # Treat environmental extensions (dead simple for ixi constructs)
+        if self.F is not None:
+            F_con = self.F.copy()
+            S = F_con * _one_over(self.g)
+
+        # Remove extraneous data and return
+        if not return_flows:
+            Z = np.empty(0)
+            F_con = np.empty(0)
+
+        return (A, S, Z, F_con)
+
 
     """ HELPER/HIDDEN METHODS"""
 
