@@ -1065,5 +1065,17 @@ class TestAllocationsConstructs(unittest.TestCase):
 
         npt.assert_allclose(A, A0, atol=self.atol)
 
+    def test_fis_transition(self):
+        """ Test Fixed Product Sales Structure (sut.fps) relative to the
+        function it aims to replace (sut.Build_ITC_A_matrix_ixi()"""
+
+        sut = SupplyUseTable(U=self.Ua, V=self.Va, F=self.Fa)
+        A, S, Z, F_con = sut.fis()
+
+        A0 = sut.Build_CTC_A_matrix_ixi()
+
+        npt.assert_allclose(A, A0, atol=self.atol)
+        npt.assert_allclose(F_con, self.Fa, atol=self.atol)
+
 if __name__ == '__main__':
     unittest.main()

@@ -1368,16 +1368,16 @@ class SupplyUseTable(object):
 
         Args
         ----
-        returnd_flows: by default, return both normalized coefficients and
+        return_flows: by default, return both normalized coefficients and
             absolute (unnormalized) flows. Otherwise, returns empty Z and F_con
             variables
 
         Returns
         --------
-        A : Normalized technical requirements [com,com]
-        S : Normalized, constructed emissions [ext, com]
-        Z : constructed intermediate flow matrix [com,com]
-        F_con : Constructed emissions [ext,com]
+        A : Normalized technical requirements [ind,ind]
+        S : Normalized, constructed emissions [ext, ind]
+        Z : constructed intermediate flow matrix [ind,ind]
+        F_con : Constructed emissions [ext,ind]
 
         Depends on
         ----------
@@ -1395,7 +1395,54 @@ class SupplyUseTable(object):
             # ------------- sparse matrix notation start ---------------------
         Z = (D_sp * sp.csc_matrix(self.U)).toarray()
             # ------------- sparse matrix notation end -----------------------
-        
+
+        # Normalize
+        A = Z * _one_over(self.g)
+
+        # Treat environmental extensions (dead simple for ixi constructs)
+        if self.F is not None:
+            F_con = self.F.copy()
+            S = F_con * _one_over(self.g)
+
+        # Remove extraneous data and return
+        if not return_flows:
+            Z = np.empty(0)
+            F_con = np.empty(0)
+
+        return (A, S, Z, F_con)
+
+
+    def fis(self, return_flows=True):
+        """Performs Fixed Industry Sales Structure Construct
+        An industry-by-industry construct
+
+        Args
+        ----
+        return_flows: by default, return both normalized coefficients and
+            absolute (unnormalized) flows. Otherwise, returns empty Z and F_con
+            variables
+
+        Returns
+        --------
+        A : Normalized technical requirements [ind,ind]
+        S : Normalized, constructed emissions [ext, ind]
+        Z : constructed intermediate flow matrix [ind,ind]
+        F_con : Constructed emissions [ext,ind]
+
+        Depends on
+        ----------
+        self.U : Use table [com, ind]
+        self.V : Supply table [com, ind]
+        self.F : Unallocated emissions [ext, ind] (default=np.empty(0))
+
+        """
+        # Default values
+        F_con = np.empty(0)
+        S = np.empty(0)
+
+            # ------------- sparse matrix notation start ---------------------
+        Z = self.g.reshape((-1,1)) * (sl.inv(self.__sV) * self.__sU).toarray()
+            # ------------- sparse matrix notation end -----------------------
 
         # Normalize
         A = Z * _one_over(self.g)
