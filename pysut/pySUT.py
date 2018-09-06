@@ -26,6 +26,7 @@ Repository for this class, documentation, and tutorials: https://github.com/stef
 from __future__ import division, print_function
 import logging
 import numpy as np
+import warnings
 from scipy import sparse as sp
 from scipy.sparse import linalg as sl
 
@@ -1944,7 +1945,9 @@ def _one_over(x):
        Values = 1/coefficient, or 0 if coefficient == 0
 
     """
-    y = 1 / x
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        y = 1 / x
     y[y == np.Inf] = 0
     return y
 
